@@ -26,4 +26,10 @@ subprojects {
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
     }
+
+    // bootRun otherwise starts the process in apps/<module>, so a relative config import - the
+    // repository-root .env - resolves against the wrong directory and is silently skipped.
+    tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun>().configureEach {
+        workingDir = rootProject.projectDir
+    }
 }

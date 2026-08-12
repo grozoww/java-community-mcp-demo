@@ -1,4 +1,11 @@
 spring:
+  # Spring Boot has no built-in .env support; this is what reads it. [.properties] parses it as a
+  # properties file, which KEY=value already is. NOTE: the path is relative to the PROCESS working
+  # directory, and `optional:` means a miss is silent - so if this resolves to the wrong directory
+  # you get an empty token and a 401 rather than an error. The root build pins bootRun's working
+  # directory to the repository root so ./.env is the one next to settings.gradle.kts.
+  config:
+    import: optional:file:./.env[.properties]
   application:
     name: mcp-server-github
   threads:
