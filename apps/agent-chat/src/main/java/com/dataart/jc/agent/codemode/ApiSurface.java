@@ -2,6 +2,7 @@ package com.dataart.jc.agent.codemode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.tool.ToolCallback;
@@ -45,14 +46,42 @@ public final class ApiSurface {
                 .map(ToolCallback::getToolDefinition)
                 .map(definition -> """
                         /**
-                         * %s
+                         * %s%s
                          */
                         declare function %s(args: %s): any;"""
                         .formatted(
                                 definition.description().replace("\n", "\n * "),
+                                parameterDocs(definition.inputSchema()),
                                 definition.name(),
                                 typeLiteral(definition.inputSchema())))
                 .collect(Collectors.joining("\n\n"));
+    }
+
+    /**
+     * The per-parameter descriptions, as {@code @param} lines.
+     *
+     * <p>Easy to leave out, and expensive when you do. A JSON Schema carries a description on every
+     * property; a bare TypeScript signature carries none. Drop them and the model is left guessing at
+     * arguments it cannot derive - which is how you get a confident call against a repository that
+     * does not exist. The type literal says <em>what shape</em>; only these lines say <em>what value</em>.
+     */
+    private static String parameterDocs(String inputSchema) {
+        Object properties = schema(inputSchema).get("properties");
+        if (!(properties instanceof Map<?, ?> map) || map.isEmpty()) {
+            return "";
+        }
+        String docs = map.entrySet().stream()
+                .map(entry -> {
+                    Object description = entry.getValue() instanceof Map<?, ?> property
+                            ? property.get("description") : null;
+                    String text = description == null ? "" : String.valueOf(description);
+                    return text.isBlank()
+                            ? null
+                            : " * @param %s %s".formatted(entry.getKey(), text.replace("\n", " ").strip());
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("\n"));
+        return docs.isEmpty() ? "" : "\n *\n" + docs;
     }
 
     private static Map<String, Object> schema(String inputSchema) {
@@ -63,10 +92,23 @@ public final class ApiSurface {
         }
     }
 
+    /** Names for the one-line index, with a trailing {@code ?} on anything the model may omit. */
     private static List<String> parameterNames(String inputSchema) {
-        Object properties = schema(inputSchema).get("properties");
-        return properties instanceof Map<?, ?> map
-                ? map.keySet().stream().map(String::valueOf).toList()
+        Map<String, Object> root = schema(inputSchema);
+        Object properties = root.get("properties");
+        if (!(properties instanceof Map<?, ?> map)) {
+            return List.of();
+        }
+        List<String> required = requiredNames(root);
+        return map.keySet().stream()
+                .map(String::valueOf)
+                .map(name -> required.contains(name) ? name : name + "?")
+                .toList();
+    }
+
+    private static List<String> requiredNames(Map<String, Object> root) {
+        return root.get("required") instanceof List<?> list
+                ? list.stream().map(String::valueOf).toList()
                 : List.of();
     }
 
@@ -77,9 +119,7 @@ public final class ApiSurface {
         if (!(properties instanceof Map<?, ?> map) || map.isEmpty()) {
             return "{}";
         }
-        List<String> required = root.get("required") instanceof List<?> list
-                ? list.stream().map(String::valueOf).toList()
-                : List.of();
+        List<String> required = requiredNames(root);
 
         String fields = map.entrySet().stream()
                 .map(entry -> {

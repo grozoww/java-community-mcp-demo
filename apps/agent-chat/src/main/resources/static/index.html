@@ -41,14 +41,15 @@
     background: var(--panel-2); border: 1px solid var(--line); padding: 8px 12px; border-radius: 8px;
   }
   .badge b { color: var(--accent-2); }
-  main { flex: 1; display: grid; grid-template-columns: 1fr 400px; min-height: 0; }
-  #chat { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+  /* minmax(0,…) + min-width:0 stop a long unbreakable path from widening a grid column. */
+  main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); min-height: 0; }
+  #chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--line); }
   #log { flex: 1; overflow-y: auto; padding: 22px 26px; }
-  .msg { max-width: 780px; margin: 0 0 18px; }
+  .msg { max-width: 780px; min-width: 0; margin: 0 0 18px; }
   .msg .who { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
-  .msg.user .bubble { background: var(--panel-2); }
-  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; white-space: pre-wrap; }
-  .bubble code { font-family: var(--mono); font-size: 14px; background: #0b0f15; padding: 1px 5px; border-radius: 4px; }
+  .msg.user .bubble { background: var(--panel-2); white-space: pre-wrap; }
+  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-wrap: anywhere; }
+  .bubble code { font-family: var(--mono); font-size: 13px; background: #0b0f15; border: 1px solid var(--line); padding: 1px 5px; border-radius: 5px; }
   .meta { font: 12px/1 var(--mono); color: var(--muted); margin-top: 8px; }
   form { display: flex; gap: 10px; padding: 16px 26px; border-top: 1px solid var(--line); background: var(--panel); }
   input[type=text] {
@@ -58,17 +59,22 @@
   input[type=text]:focus { border-color: var(--accent); }
   button.send { background: var(--accent); color: #06121f; border: 0; padding: 0 22px; border-radius: 10px; font-weight: 600; cursor: pointer; }
   button.send:disabled { opacity: .5; cursor: default; }
-  aside { overflow-y: auto; padding: 18px 20px; background: var(--panel); }
+  aside { overflow-y: auto; min-width: 0; padding: 18px 20px; background: var(--panel); }
   aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 10px; }
   aside section { margin-bottom: 26px; }
+  /* Full-width rows, not pills: these strings run to several lines, and a 999px radius on a
+     multi-line box curves in far enough to sit on top of the text. */
   .chip {
-    display: inline-block; font-size: 13px; color: var(--text); background: var(--panel-2);
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; margin: 0 6px 6px 0; cursor: pointer;
+    display: block; width: 100%; text-align: left; font: 13px/1.45 inherit;
+    color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; margin: 0 0 8px; cursor: pointer;
+    overflow-wrap: anywhere;
   }
-  .chip:hover { border-color: var(--accent); }
+  .chip:last-child { margin-bottom: 0; }
+  .chip:hover { border-color: var(--accent); background: #202839; }
   .call { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel-2); }
   .call .name { font: 13px/1.3 var(--mono); color: var(--accent); }
-  .call .args, .call .res { font: 12px/1.45 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; margin-top: 6px; max-height: 120px; overflow: hidden; }
+  .call .args, .call .res { font: 12px/1.45 var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; max-height: 140px; overflow-y: auto; }
   .call.error .name { color: var(--danger); }
   .call.approval_required .name { color: var(--warn); }
   .approval { border: 1px solid var(--warn); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #241c07; }
@@ -78,9 +84,53 @@
   .approve { background: var(--accent-2); color: #06121f; }
   .reject { background: #30363d; color: var(--text); }
   .tool-row { font: 12px/1.5 var(--mono); color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
-  .tool-row b { color: var(--text); font-weight: 500; }
+  .tool-row b { color: var(--text); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+  .tool-row span { flex: none; }
   .dots::after { content: '.'; animation: dots 1.2s steps(4, end) infinite; }
   @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+
+  /* ---- rendered markdown in agent replies ---- */
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 10px; }
+  /* 20 / 16 is a 1.25 step; the third level drops to a caps label so it reads as a different
+     thing rather than a third almost-identical size. */
+  .md h3, .md h4, .md h5 { margin: 18px 0 8px; line-height: 1.3; font-weight: 600; }
+  .md h3 { font-size: 20px; letter-spacing: -0.01em; }
+  .md h4 { font-size: 16px; }
+  .md h5 { font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .md ul, .md ol { margin: 0 0 10px; padding-left: 22px; }
+  .md li { margin: 3px 0; }
+  .md li > p { margin: 0; }
+  .md a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(79, 156, 249, .35); }
+  .md a:hover { border-bottom-color: var(--accent); }
+  .md blockquote { margin: 0 0 10px; padding: 2px 0 2px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+  .md hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+  .md table { border-collapse: collapse; margin: 0 0 12px; font-size: 14px; display: block; overflow-x: auto; }
+  .md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  .md th { background: var(--panel-2); font-weight: 600; }
+
+  .code { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0b0f15; }
+  .code-h {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 6px 8px 6px 12px; background: var(--panel-2); border-bottom: 1px solid var(--line);
+    font: 12px/1 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  }
+  .code-h .copy {
+    background: transparent; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 6px; padding: 4px 9px; font: 12px var(--mono); cursor: pointer;
+    text-transform: none; letter-spacing: 0;
+  }
+  .code-h .copy:hover { color: var(--text); border-color: var(--accent); }
+  .code pre { margin: 0; padding: 12px 14px; overflow-x: auto; }
+  /* wins over .bubble code: inside a block there is no chip background or border */
+  .md .code code { font: 13px/1.6 var(--mono); background: none; border: 0; padding: 0; }
+  .code .c { color: #6b7688; font-style: italic; }
+  .code .s { color: #a5d6ff; }
+  .code .k { color: #ff7b72; }
+  .code .a { color: #d2a8ff; }
+  .code .n { color: #79c0ff; }
+  .code .t { color: #7ee787; }
 </style>
 </head>
 <body>
@@ -197,6 +247,173 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
+/* ---------------------------------------------------------------------------
+ * Markdown rendering.
+ *
+ * Everything below is deliberately escape-first: the model's reply can contain
+ * text it copied out of a GitHub issue, and this server tells the model in so
+ * many words that issue bodies are untrusted input. So the raw string is HTML-
+ * escaped before a single tag is added, and link targets are checked against a
+ * scheme allow-list. A markdown renderer is a nice-to-have; an injection sink
+ * in the one window that displays attacker-controlled text is not.
+ * ------------------------------------------------------------------------- */
+
+const KEYWORDS = 'abstract|assert|async|await|boolean|break|byte|case|catch|char|class|const|continue'
+  + '|default|do|double|else|enum|export|extends|final|finally|float|for|function|if|implements|import'
+  + '|instanceof|int|interface|let|long|native|new|package|private|protected|public|record|return|sealed'
+  + '|short|static|super|switch|synchronized|this|throw|throws|transient|try|var|void|volatile|while'
+  + '|yield|true|false|null|undefined';
+
+const TOKENS = new RegExp(
+  '(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*|#[^\\n]*)'          // 1 comment
+  + '|("(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\')' // 2 string
+  + '|(@[A-Za-z_$][\\w$]*)'                                   // 3 annotation
+  + '|\\b(' + KEYWORDS + ')\\b'                               // 4 keyword
+  + '|\\b(\\d[\\w.]*)\\b'                                     // 5 number
+  + '|\\b([A-Z][\\w$]*)\\b',                                  // 6 type
+  'g');
+
+/** Escapes first, then wraps tokens. Quotes survive escapeHtml, so strings still match. */
+function highlight(code) {
+  return escapeHtml(code).replace(TOKENS, (m, c, s, a, k, n, t) =>
+    c ? `<span class="c">${c}</span>` : s ? `<span class="s">${s}</span>`
+      : a ? `<span class="a">${a}</span>` : k ? `<span class="k">${k}</span>`
+        : n ? `<span class="n">${n}</span>` : t ? `<span class="t">${t}</span>` : m);
+}
+
+/** http/https/mailto only - blocks javascript: and data: targets. */
+function link(url, label) {
+  const full = /^www\./i.test(url) ? 'https://' + url : url;
+  if (!/^(https?|mailto):/i.test(full)) return label;
+  const href = full.replace(/"/g, '&quot;');
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`;
+}
+
+function inline(src) {
+  const spans = [];
+  let out = String(src).replace(/`([^`\n]+)`/g, (m, c) => `\u0001${spans.push(c) - 1}\u0001`);
+  out = escapeHtml(out);
+  out = out.replace(/\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (m, label, url) => link(url, label || url));
+  out = out.replace(/(^|[\s(])((?:https?:\/\/|www\.)[^\s<>()]+)/gi, (m, before, url) => before + link(url, url));
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  out = out.replace(/(^|[^\w*])\*([^*\n]+)\*(?![\w*])/g, '$1<em>$2</em>');
+  out = out.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, '$1<em>$2</em>');
+  out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  return out.replace(/\u0001(\d+)\u0001/g, (m, i) => `<code>${escapeHtml(spans[+i])}</code>`);
+}
+
+function codeBlock(lang, code) {
+  return `<div class="code"><div class="code-h"><span>${escapeHtml(lang || 'code')}</span>`
+    + `<button class="copy" type="button">Copy</button></div>`
+    + `<pre><code>${highlight(code)}</code></pre></div>`;
+}
+
+function renderMarkdown(src) {
+  const blocks = [];
+  // Fenced code comes out first so no inline rule can touch its contents.
+  const text = String(src ?? '').replace(/```([\w+-]*)[ \t]*\r?\n?([\s\S]*?)```/g,
+    (m, lang, code) => `\u0000${blocks.push({ lang, code: code.replace(/\r?\n$/, '') }) - 1}\u0000`);
+
+  const lines = text.split(/\r?\n/);
+  const isBullet = (l) => /^\s*[-*+]\s+/.test(l);
+  const isNumber = (l) => /^\s*\d+[.)]\s+/.test(l);
+  let html = '';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const placeholder = line.match(/^\u0000(\d+)\u0000$/);
+
+    if (placeholder) { html += codeBlock(blocks[+placeholder[1]].lang, blocks[+placeholder[1]].code); i++; }
+    else if (!line.trim()) { i++; }
+    else if (/^\s{0,3}(---+|\*\*\*+|___+)\s*$/.test(line)) { html += '<hr/>'; i++; }
+    else if (/^#{1,6}\s+/.test(line)) {
+      // Demote into the bubble's own three levels. A reply is not a document, so # and ## both
+      // land on the top size; only #### and deeper get the caps label.
+      const hashes = line.match(/^#+/)[0].length;
+      const level = hashes <= 2 ? 3 : hashes === 3 ? 4 : 5;
+      html += `<h${level}>${inline(line.replace(/^#+\s+/, ''))}</h${level}>`;
+      i++;
+    }
+    else if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1] || '')) {
+      const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      const head = cells(line);
+      i += 2;
+      const body = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { body.push(cells(lines[i])); i++; }
+      html += '<table><thead><tr>' + head.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+        + body.map(r => '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
+    }
+    else if (isBullet(line) || isNumber(line)) {
+      const ordered = isNumber(line);
+      const items = [];
+      while (i < lines.length && (ordered ? isNumber(lines[i]) : isBullet(lines[i]))) {
+        items.push(lines[i].replace(ordered ? /^\s*\d+[.)]\s+/ : /^\s*[-*+]\s+/, ''));
+        i++;
+      }
+      const tag = ordered ? 'ol' : 'ul';
+      html += `<${tag}>` + items.map(it => `<li>${inline(it)}</li>`).join('') + `</${tag}>`;
+    }
+    else if (/^\s*>/.test(line)) {
+      const quoted = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) { quoted.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+      html += `<blockquote>${inline(quoted.join(' '))}</blockquote>`;
+    }
+    else {
+      const paragraph = [];
+      while (i < lines.length && lines[i].trim() && !/^\u0000\d+\u0000$/.test(lines[i])
+        && !/^#{1,6}\s+/.test(lines[i]) && !isBullet(lines[i]) && !isNumber(lines[i])
+        && !/^\s*>/.test(lines[i])) {
+        paragraph.push(lines[i]);
+        i++;
+      }
+      html += `<p>${inline(paragraph.join('\n')).replace(/\n/g, '<br/>')}</p>`;
+    }
+  }
+  return html;
+}
+
+/**
+ * navigator.clipboard rejects with NotAllowedError whenever the page is not focused or the
+ * permission is refused - which on a projector, in a locked-down browser, is exactly when the
+ * demo needs it. Fall back to execCommand, and always say something either way.
+ */
+function copyText(value) {
+  if (navigator.clipboard) {
+    return navigator.clipboard.writeText(value).catch(() => legacyCopy(value));
+  }
+  return legacyCopy(value);
+}
+
+function legacyCopy(value) {
+  const scratch = document.createElement('textarea');
+  scratch.value = value;
+  scratch.setAttribute('readonly', '');
+  scratch.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+  document.body.appendChild(scratch);
+  scratch.select();
+  const ok = document.execCommand && document.execCommand('copy');
+  scratch.remove();
+  return ok ? Promise.resolve() : Promise.reject(new Error('copy blocked'));
+}
+
+function setMarkdown(el, text) {
+  el.classList.add('md');
+  el.innerHTML = renderMarkdown(text);
+  el.querySelectorAll('.copy').forEach(btn => {
+    btn.onclick = () => {
+      const say = (word) => {
+        btn.textContent = word;
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+      };
+      copyText(btn.closest('.code').querySelector('code').innerText)
+        .then(() => say('Copied'))
+        .catch(() => say('Press ⌘C'));
+    };
+  });
+}
+
 async function send(text) {
   if (!text.trim()) return;
   addMessage('You', text);
@@ -211,7 +428,7 @@ async function send(text) {
       body: JSON.stringify({ conversationId, message: text, mode })
     });
     const data = await res.json();
-    thinking.querySelector('.bubble').textContent = data.reply;
+    setMarkdown(thinking.querySelector('.bubble'), data.reply);
     const t = data.tokens || {};
     thinking.querySelector('.meta')?.remove();
     const meta = document.createElement('div');
@@ -221,6 +438,7 @@ async function send(text) {
     thinking.appendChild(meta);
     renderCalls(data.toolCalls);
     renderApprovals(data.approvals);
+    $('log').scrollTop = $('log').scrollHeight;   // code blocks change the height after render
   } catch (e) {
     thinking.querySelector('.bubble').textContent = 'Request failed: ' + e;
   } finally {

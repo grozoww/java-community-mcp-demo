@@ -9,14 +9,16 @@ spring:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       init:
-        pull-model-strategy: never      # fail fast instead of silently downloading 5 GB on stage
+        pull-model-strategy: never      # fail fast instead of silently downloading 8 GB on stage
       chat:
-        options:
-          # Default demo model. Small and fast; tool calling works but is not always graceful -
-          # which is itself a point the talk makes. Switch with --spring.profiles.active=llama.
-          model: ${OLLAMA_MODEL:qwen2.5:1.5b}
-          temperature: 0.1
-          num-ctx: 8192
+        # Default demo model: Gemma 4 12B. Native function calling, big context, and just
+        # capable enough to read Java, write Java and chain four write tools without losing
+        # the thread. This is the model the self-modification demo needs.
+        model: "${OLLAMA_MODEL:gemma4:12b-mlx}"
+        temperature: 0.1
+        # 21 tool definitions (~3k tokens) + system prompt + one Java file + history does not
+        # fit in 8k. Drop back to 8192 if the laptop starts swapping.
+        num-ctx: 16384
 
     mcp:
       client:
@@ -57,10 +59,14 @@ demo:
     suggestions:
       - "Which branch is the default one, and what was the last push?"
       - "List the open issues and tell me which one is the oldest."
-      - "Read build.gradle.kts and tell me which Spring AI version we are on."
       - "Is the build green? Check the last workflow runs."
       - "How much heap is this agent using right now?"
       - "Turn on DEBUG logging for org.springframework.ai.mcp."
+      # --- self-modification, three steps. Click them in order. ---
+#      - "Read apps/mcp-server-github/src/main/java/com/dataart/jc/mcp/github/tools/RepositoryTools.java and show me the listFiles method."
+#      - "Now write a NEW Java class BranchTools in package com.dataart.jc.mcp.github.tools, in exactly the same style: @Service, one method annotated @McpTool(name = \"github_list_branches\") that takes owner and repo, calls GET /repos/{owner}/{repo}/branches and returns the branch names. Output only the Java source."
+#      - "Create branch agent/list-branches, commit that source as apps/mcp-server-github/src/main/java/com/dataart/jc/mcp/github/tools/BranchTools.java, and open a pull request explaining why."
+      # --- the same task as one shot. Works on a good model, fails instructively on a small one. ---
       - "Add a tool called github_list_branches to the MCP server and open a pull request."
 
 logging:
@@ -69,6 +75,7 @@ logging:
     org.springframework.ai.mcp: INFO
 
 ---
+# Older, weaker, 8k context. Keep it for comparison - it is visibly worse at multi-step work.
 spring:
   config:
     activate:
@@ -81,6 +88,21 @@ spring:
           num-ctx: 8192
 
 ---
+# The "small model" profile. Fine for reading and Actuator questions, falls apart on the
+# self-modification flow - which is exactly the point of the "more tools make small models
+# worse" slide. Run the first half of the demo on this on purpose.
+spring:
+  config:
+    activate:
+      on-profile: small
+  ai:
+    ollama:
+      chat:
+        options:
+          model: qwen2.5:1.5b
+          num-ctx: 8192
+
+---
 spring:
   config:
     activate:
@@ -90,3 +112,4 @@ spring:
       chat:
         options:
           model: phi3:mini
+          num-ctx: 4096
