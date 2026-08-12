@@ -1,0 +1,92 @@
+spring:
+  application:
+    name: agent-chat
+  threads:
+    virtual:
+      enabled: true
+
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never      # fail fast instead of silently downloading 5 GB on stage
+      chat:
+        options:
+          # Default demo model. Small and fast; tool calling works but is not always graceful -
+          # which is itself a point the talk makes. Switch with --spring.profiles.active=llama.
+          model: ${OLLAMA_MODEL:qwen2.5:1.5b}
+          temperature: 0.1
+          num-ctx: 8192
+
+    mcp:
+      client:
+        name: java-community-agent
+        version: 0.1.0
+        request-timeout: 60s
+        type: SYNC
+        streamable-http:
+          connections:
+            github:
+              url: ${MCP_GITHUB_URL:http://localhost:8081}
+              endpoint: /mcp
+            actuator:
+              url: ${MCP_ACTUATOR_URL:http://localhost:8082}
+              endpoint: /mcp
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,beans,loggers,threaddump
+  endpoint:
+    health:
+      show-details: always
+    env:
+      show-values: ALWAYS
+  info:
+    env:
+      enabled: true
+
+demo:
+  agent:
+    max-tool-rounds: 8
+    script-timeout-millis: 15000
+    suggestions:
+      - "Which branch is the default one, and what was the last push?"
+      - "List the open issues and tell me which one is the oldest."
+      - "Read build.gradle.kts and tell me which Spring AI version we are on."
+      - "Is the build green? Check the last workflow runs."
+      - "How much heap is this agent using right now?"
+      - "Turn on DEBUG logging for org.springframework.ai.mcp."
+      - "Add a tool called github_list_branches to the MCP server and open a pull request."
+
+logging:
+  level:
+    com.dataart.jc: DEBUG
+    org.springframework.ai.mcp: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: llama
+  ai:
+    ollama:
+      chat:
+        options:
+          model: llama3:8b
+          num-ctx: 8192
+
+---
+spring:
+  config:
+    activate:
+      on-profile: phi
+  ai:
+    ollama:
+      chat:
+        options:
+          model: phi3:mini

@@ -1,0 +1,19 @@
+# Version catalogue for the whole monorepo.
+# Bump versions here only - never inside a module build file.
+[versions]
+# Spring Boot 4.1.0 (June 2026) - Spring Framework 7.0, Jackson 3, Java 17+ baseline.
+springBoot = "4.1.0"
+# Spring AI 2.0.0 GA (June 2026) - annotation-driven MCP (@McpTool/@McpResource/@McpPrompt),
+# tool calling moved into the advisor chain, ToolSearchToolCallingAdvisor.
+springAi = "2.0.0"
+# GraalJS: the sandbox used by the "code execution" (Code Mode) demo.
+graalvm = "25.0.2"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "springAi" }
+graal-polyglot = { module = "org.graalvm.polyglot:polyglot", version.ref = "graalvm" }
+graal-js = { module = "org.graalvm.polyglot:js-community", version.ref = "graalvm" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

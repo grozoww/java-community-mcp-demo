@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: mcp-server-actuator
+  threads:
+    virtual:
+      enabled: true
+  ai:
+    mcp:
+      server:
+        name: actuator-mcp-server
+        version: 0.1.0
+        instructions: >
+          Observability tools for the running agent application itself. Prefer app_list_metrics before
+          app_metric. Never ask for a raw thread dump; app_thread_summary already aggregates it.
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
+
+server:
+  port: 8082
+
+demo:
+  actuator:
+    base-url: ${DEMO_ACTUATOR_BASE_URL:http://localhost:8080/actuator}
+    write-enabled: true
+    writable-loggers: com.dataart.jc,org.springframework.ai
+
+logging:
+  level:
+    com.dataart.jc: DEBUG
