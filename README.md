@@ -87,3 +87,12 @@ Start the two MCP servers **before** the agent: the Spring AI MCP client connect
 * Write tools are blocked inside Code Mode on purpose (`McpBridge`). A script that makes forty calls
   has nowhere to pause and ask a human.
 * GraalJS on a stock JDK runs in interpreter mode. Fine for a demo; use GraalVM if you care.
+
+## The Actuator MCP server
+
+`mcp-server-actuator` (:8082) exposes eight tools over Spring Boot Actuator: health, metrics,
+environment, beans, log levels and a thread-dump summary. It points at the agent's own Actuator
+endpoint, so the agent can answer questions about itself.
+
+It needs no network, no token and no rate limit, which makes it the half of the demo that always
+works.
