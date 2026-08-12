@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -38,6 +39,33 @@ class RepoGuardTest {
                 .hasMessageContaining("protected");
         assertThatCode(() -> guard.checkWrite("acme", "demo", "agent/feature"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void fillsInTheConfiguredRepositoryWhenTheModelOmitsIt() {
+        // The failure this prevents: a model that cannot know the owner sends {} and the call is
+        // rejected by schema validation before it ever reaches the guard.
+        assertThat(guard.resolve(null, null)).isEqualTo(new RepoGuard.Target("acme", "demo"));
+        assertThat(guard.resolve("", "  ")).isEqualTo(new RepoGuard.Target("acme", "demo"));
+        assertThat(guard.resolve("acme", null)).isEqualTo(new RepoGuard.Target("acme", "demo"));
+    }
+
+    @Test
+    void stillRejectsAnExplicitlyWrongRepositoryAfterDefaulting() {
+        assertThatThrownBy(() -> guard.resolve("acme", "secrets"))
+                .isInstanceOf(RepoGuard.PolicyViolation.class)
+                .hasMessageContaining("allow-list");
+        assertThatThrownBy(() -> guard.resolve("spring-projects", "spring-ai"))
+                .isInstanceOf(RepoGuard.PolicyViolation.class);
+    }
+
+    @Test
+    void resolveForWriteAppliesDefaultsAndTheProtectedBranchRule() {
+        assertThat(guard.resolveForWrite(null, null, "agent/feature"))
+                .isEqualTo(new RepoGuard.Target("acme", "demo"));
+        assertThatThrownBy(() -> guard.resolveForWrite(null, null, "main"))
+                .isInstanceOf(RepoGuard.PolicyViolation.class)
+                .hasMessageContaining("protected");
     }
 
     @Test

@@ -28,6 +28,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class RepositoryTools {
 
+    static final String OWNER = "Repository owner. Optional, defaults to the allowed repository.";
+    static final String REPO = "Repository name. Optional, defaults to the allowed repository.";
+
     private final GithubApiClient api;
     private final RepoGuard guard;
     private final GithubProperties properties;
@@ -61,10 +64,11 @@ public class RepositoryTools {
                     count and last push time. Use it to discover the default branch before reading files.""",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = true))
     public RepoSummary getRepository(
-            @McpToolParam(description = "Repository owner, e.g. 'spring-projects'") String owner,
-            @McpToolParam(description = "Repository name, e.g. 'spring-ai'") String repo) {
-        guard.checkRepo(owner, repo);
-        Map<String, Object> body = api.getObject(b -> b.path("/repos/{owner}/{repo}").build(owner, repo));
+            @McpToolParam(description = OWNER, required = false) String owner,
+            @McpToolParam(description = REPO, required = false) String repo) {
+        RepoGuard.Target target = guard.resolve(owner, repo);
+        Map<String, Object> body = api.getObject(
+                b -> b.path("/repos/{owner}/{repo}").build(target.owner(), target.repo()));
         return new RepoSummary(
                 Json.str(body, "full_name"),
                 Json.clip(Json.str(body, "description", ""), 300),
@@ -84,20 +88,20 @@ public class RepositoryTools {
                     do not pull whole directories into context.""",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = true))
     public List<FileEntry> listFiles(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = OWNER, required = false) String owner,
+            @McpToolParam(description = REPO, required = false) String repo,
             @McpToolParam(description = "Directory path, empty string for the repository root", required = false)
             String path,
             @McpToolParam(description = "Branch, tag or commit SHA. Defaults to the default branch.", required = false)
             String ref) {
-        guard.checkRepo(owner, repo);
+        RepoGuard.Target target = guard.resolve(owner, repo);
         String safePath = path == null ? "" : path.replaceFirst("^/", "");
         // NOTE: the file path is concatenated into the template, not passed as a URI variable.
         // URI variables are encoded, which would turn "src/main/java" into "src%2Fmain%2Fjava".
         List<Map<String, Object>> entries = api.getArray(b -> b
                 .path("/repos/{owner}/{repo}/contents/" + safePath)
                 .queryParamIfPresent("ref", java.util.Optional.ofNullable(blankToNull(ref)))
-                .build(owner, repo));
+                .build(target.owner(), target.repo()));
         return entries.stream()
                 .map(entry -> new FileEntry(
                         Json.str(entry, "path"),
@@ -114,17 +118,17 @@ public class RepositoryTools {
                     listing many - each file you read stays in the conversation for the rest of the session.""",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = true))
     public FileContent readFile(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = OWNER, required = false) String owner,
+            @McpToolParam(description = REPO, required = false) String repo,
             @McpToolParam(description = "File path relative to the repository root") String path,
             @McpToolParam(description = "Branch, tag or commit SHA. Defaults to the default branch.", required = false)
             String ref) {
-        guard.checkRepo(owner, repo);
+        RepoGuard.Target target = guard.resolve(owner, repo);
         String safePath = path.replaceFirst("^/", "");
         Map<String, Object> body = api.getObject(b -> b
                 .path("/repos/{owner}/{repo}/contents/" + safePath)
                 .queryParamIfPresent("ref", java.util.Optional.ofNullable(blankToNull(ref)))
-                .build(owner, repo));
+                .build(target.owner(), target.repo()));
 
         String encoded = Json.str(body, "content", "");
         byte[] decoded = Base64.getMimeDecoder().decode(encoded.isBlank() ? "" : encoded);
@@ -173,17 +177,17 @@ public class RepositoryTools {
                     'is the build green' or to find the run that failed before proposing a fix.""",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = true))
     public List<WorkflowRunSummary> listWorkflowRuns(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = OWNER, required = false) String owner,
+            @McpToolParam(description = REPO, required = false) String repo,
             @McpToolParam(description = "Restrict to a branch, optional", required = false) String branch,
             @McpToolParam(description = "Maximum number of runs, 1-20. Default 5.", required = false) Integer limit) {
-        guard.checkRepo(owner, repo);
+        RepoGuard.Target target = guard.resolve(owner, repo);
         int max = limit == null ? 5 : Math.clamp(limit, 1, 20);
         Map<String, Object> body = api.getObject(b -> b
                 .path("/repos/{owner}/{repo}/actions/runs")
                 .queryParamIfPresent("branch", java.util.Optional.ofNullable(blankToNull(branch)))
                 .queryParam("per_page", max)
-                .build(owner, repo));
+                .build(target.owner(), target.repo()));
         return Json.arr(body, "workflow_runs").stream()
                 .map(run -> new WorkflowRunSummary(
                         Json.i64(run, "id"),

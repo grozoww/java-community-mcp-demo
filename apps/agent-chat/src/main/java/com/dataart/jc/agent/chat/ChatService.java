@@ -60,7 +60,7 @@ public class ChatService {
                         .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId));
 
                 spec = switch (mode) {
-                    case TOOLS -> spec.toolCallbacks(catalog.guarded());
+                    case TOOLS -> spec.tools(catalog.guarded());
                     case CODE -> spec.tools(codeModeTools);
                     case PLAIN -> spec;
                 };

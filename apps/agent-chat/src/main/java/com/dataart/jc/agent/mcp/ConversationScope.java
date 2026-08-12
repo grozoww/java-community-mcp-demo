@@ -1,7 +1,5 @@
 package com.dataart.jc.agent.mcp;
 
-import java.util.concurrent.Callable;
-
 /**
  * Carries the conversation id from the HTTP request down into a tool callback without threading it
  * through six method signatures.
@@ -17,7 +15,13 @@ public final class ConversationScope {
     private ConversationScope() {
     }
 
-    public static <T> T with(String conversationId, Callable<T> action) throws Exception {
+    /**
+     * Note the operation type: the finalised Java 25 API takes {@code ScopedValue.CallableOp}, not
+     * {@code Callable}. It is generic over the thrown type, so a body that throws nothing stays
+     * exception-free at the call site instead of being forced into {@code throws Exception}.
+     */
+    public static <T, X extends Throwable> T with(String conversationId,
+                                                  ScopedValue.CallableOp<T, X> action) throws X {
         return ScopedValue.where(CONVERSATION, conversationId).call(action);
     }
 

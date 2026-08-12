@@ -43,8 +43,8 @@ public class McpToolCatalog {
     }
 
     /** Tool callbacks with the human-approval guard applied - what the ChatClient actually gets. */
-    public ToolCallback[] guarded() {
-        return guarded.toArray(ToolCallback[]::new);
+    public List<ToolCallback> guarded() {
+        return guarded;
     }
 
     /** Unwrapped callbacks - used by the Code Mode bridge, which does its own guarding. */

@@ -5,7 +5,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.util.json.JsonParser;
+
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Turns MCP tool definitions into something a language model has actually seen a billion examples
@@ -16,6 +18,9 @@ import org.springframework.ai.util.json.JsonParser;
  * that is what their training data is made of.
  */
 public final class ApiSurface {
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
 
     private ApiSurface() {
     }
@@ -50,16 +55,14 @@ public final class ApiSurface {
                 .collect(Collectors.joining("\n\n"));
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> schema(String inputSchema) {
         try {
-            return JsonParser.fromJson(inputSchema, Map.class);
+            return JSON.readValue(inputSchema, MAP_TYPE);
         } catch (RuntimeException e) {
             return Map.of();
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static List<String> parameterNames(String inputSchema) {
         Object properties = schema(inputSchema).get("properties");
         return properties instanceof Map<?, ?> map

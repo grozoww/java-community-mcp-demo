@@ -57,20 +57,21 @@ public class WriteTools {
             annotations = @McpTool.McpAnnotations(
                     readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = true))
     public BranchCreated createBranch(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = RepositoryTools.OWNER, required = false) String owner,
+            @McpToolParam(description = RepositoryTools.REPO, required = false) String repo,
             @McpToolParam(description = "New branch name, e.g. 'agent/add-hello-tool'") String branch,
             @McpToolParam(description = "Branch to fork from. Defaults to the repository default branch.",
                     required = false) String fromRef) {
-        guard.checkWrite(owner, repo, branch);
+        RepoGuard.Target target = guard.resolveForWrite(owner, repo, branch);
 
-        String base = fromRef == null || fromRef.isBlank() ? defaultBranch(owner, repo) : fromRef;
+        String base = fromRef == null || fromRef.isBlank()
+                ? defaultBranch(target.owner(), target.repo()) : fromRef;
         Map<String, Object> ref = api.getObject(b -> b
                 .path("/repos/{owner}/{repo}/git/ref/heads/" + base)
-                .build(owner, repo));
+                .build(target.owner(), target.repo()));
         String sha = Json.str(Json.obj(ref, "object"), "sha");
 
-        api.post(b -> b.path("/repos/{owner}/{repo}/git/refs").build(owner, repo),
+        api.post(b -> b.path("/repos/{owner}/{repo}/git/refs").build(target.owner(), target.repo()),
                 Map.of("ref", "refs/heads/" + branch, "sha", sha));
 
         log.info("Created branch {} from {} ({})", branch, base, sha);
@@ -89,13 +90,13 @@ public class WriteTools {
             annotations = @McpTool.McpAnnotations(
                     readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = true))
     public CommitResult commitFile(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = RepositoryTools.OWNER, required = false) String owner,
+            @McpToolParam(description = RepositoryTools.REPO, required = false) String repo,
             @McpToolParam(description = "Branch to commit to. Must not be a protected branch.") String branch,
             @McpToolParam(description = "File path relative to the repository root") String path,
             @McpToolParam(description = "Full new file content, UTF-8 text") String content,
             @McpToolParam(description = "Commit message, imperative mood, one line") String message) {
-        guard.checkWrite(owner, repo, branch);
+        RepoGuard.Target target = guard.resolveForWrite(owner, repo, branch);
 
         if (content.length() > properties.maxFileBytes()) {
             throw new RepoGuard.PolicyViolation(
@@ -104,7 +105,7 @@ public class WriteTools {
         }
 
         String safePath = path.replaceFirst("^/", "");
-        String existingSha = resolveBlobSha(owner, repo, safePath, branch);
+        String existingSha = resolveBlobSha(target.owner(), target.repo(), safePath, branch);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("message", message);
@@ -115,7 +116,8 @@ public class WriteTools {
         }
 
         Map<String, Object> result = api.put(
-                b -> b.path("/repos/{owner}/{repo}/contents/" + safePath).build(owner, repo), payload);
+                b -> b.path("/repos/{owner}/{repo}/contents/" + safePath)
+                        .build(target.owner(), target.repo()), payload);
         Map<String, Object> commit = Json.obj(result, "commit");
 
         log.info("Committed {} on {} ({})", safePath, branch, Json.str(commit, "sha"));
@@ -134,24 +136,25 @@ public class WriteTools {
             annotations = @McpTool.McpAnnotations(
                     readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = true))
     public PullRequestCreated createPullRequest(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = RepositoryTools.OWNER, required = false) String owner,
+            @McpToolParam(description = RepositoryTools.REPO, required = false) String repo,
             @McpToolParam(description = "Source branch containing the change") String head,
             @McpToolParam(description = "Target branch. Defaults to the repository default branch.",
                     required = false) String base,
             @McpToolParam(description = "Pull request title") String title,
             @McpToolParam(description = "Pull request body in Markdown") String body) {
         // The head branch is what gets written to; the base is only a merge target.
-        guard.checkWrite(owner, repo, head);
-        String target = base == null || base.isBlank() ? defaultBranch(owner, repo) : base;
+        RepoGuard.Target target = guard.resolveForWrite(owner, repo, head);
+        String mergeInto = base == null || base.isBlank()
+                ? defaultBranch(target.owner(), target.repo()) : base;
 
         Map<String, Object> pr = api.post(
-                b -> b.path("/repos/{owner}/{repo}/pulls").build(owner, repo),
-                Map.of("title", title, "head", head, "base", target, "body", body, "draft", true));
+                b -> b.path("/repos/{owner}/{repo}/pulls").build(target.owner(), target.repo()),
+                Map.of("title", title, "head", head, "base", mergeInto, "body", body, "draft", true));
 
-        log.info("Opened PR #{} {} -> {}", Json.i32(pr, "number"), head, target);
+        log.info("Opened PR #{} {} -> {}", Json.i32(pr, "number"), head, mergeInto);
         return new PullRequestCreated(
-                Json.i32(pr, "number"), head, target, Json.str(pr, "html_url", ""));
+                Json.i32(pr, "number"), head, mergeInto, Json.str(pr, "html_url", ""));
     }
 
     @McpTool(
@@ -162,12 +165,12 @@ public class WriteTools {
             annotations = @McpTool.McpAnnotations(
                     readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = true))
     public IssueCreated createIssue(
-            @McpToolParam(description = "Repository owner") String owner,
-            @McpToolParam(description = "Repository name") String repo,
+            @McpToolParam(description = RepositoryTools.OWNER, required = false) String owner,
+            @McpToolParam(description = RepositoryTools.REPO, required = false) String repo,
             @McpToolParam(description = "Issue title") String title,
             @McpToolParam(description = "Issue body in Markdown") String body,
             @McpToolParam(description = "Labels to apply, optional", required = false) List<String> labels) {
-        guard.checkWrite(owner, repo, null);
+        RepoGuard.Target target = guard.resolveForWrite(owner, repo, null);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("title", title);
@@ -177,7 +180,7 @@ public class WriteTools {
         }
 
         Map<String, Object> issue = api.post(
-                b -> b.path("/repos/{owner}/{repo}/issues").build(owner, repo), payload);
+                b -> b.path("/repos/{owner}/{repo}/issues").build(target.owner(), target.repo()), payload);
         return new IssueCreated(Json.i32(issue, "number"), title, Json.str(issue, "html_url", ""));
     }
 

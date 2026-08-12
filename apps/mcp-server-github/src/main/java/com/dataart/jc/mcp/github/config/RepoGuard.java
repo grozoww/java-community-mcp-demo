@@ -21,10 +21,37 @@ public class RepoGuard {
         }
     }
 
+    public record Target(String owner, String repo) {
+    }
+
     private final GithubProperties properties;
 
     public RepoGuard(GithubProperties properties) {
         this.properties = properties;
+    }
+
+    /**
+     * Resolves the repository a read tool should use, then checks it.
+     *
+     * <p>The defaulting matters more than it looks. This server is pinned to exactly one repository,
+     * so {@code owner} and {@code repo} are facts the model has no way of knowing - asking for them
+     * is asking it to guess. A small model guesses badly: it either omits them (schema validation
+     * fails) or invents something plausible from the parameter description. Filling them in here
+     * turns two required arguments into zero, and the allow-list below still runs on whatever the
+     * model did send.
+     */
+    public Target resolve(String owner, String repo) {
+        Target target = new Target(
+                owner == null || owner.isBlank() ? properties.allowedOwner() : owner,
+                repo == null || repo.isBlank() ? properties.allowedRepo() : repo);
+        checkRepo(target.owner(), target.repo());
+        return target;
+    }
+
+    public Target resolveForWrite(String owner, String repo, String branch) {
+        Target target = resolve(owner, repo);
+        checkWrite(target.owner(), target.repo(), branch);
+        return target;
     }
 
     /** Every tool call goes through here first. */

@@ -3,7 +3,7 @@ spring:
     name: mcp-server-github
   threads:
     virtual:
-      enabled: true          # Java 21+ virtual threads: one platform thread no longer parks per MCP call.
+      enabled: true
   ai:
     mcp:
       server:
@@ -25,9 +25,9 @@ demo:
   github:
     api-base-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
-    allowed-owner: ${DEMO_GITHUB_OWNER:grozoww}
-    allowed-repo: ${DEMO_GITHUB_REPO:mcp-java-community}
-    write-enabled: ${DEMO_GITHUB_WRITE_ENABLED:false}
+    allowed-owner: ${DEMO_GITHUB_OWNER:}
+    allowed-repo: ${DEMO_GITHUB_REPO:}
+    write-enabled: ${DEMO_GITHUB_WRITE_ENABLED:true}
     protected-refs: main,master,release,production
     max-file-bytes: 32000
 
